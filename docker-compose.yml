@@ -1,0 +1,56 @@
+services:
+  db:
+    image: postgres:15
+    container_name: fastapi_db
+    restart: always
+    environment:
+      POSTGRES_USER: usuario
+      POSTGRES_PASSWORD: senha123
+      POSTGRES_DB: meubanco
+    ports:
+      - "5433:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+  redis:
+    image: redis:7-alpine
+    container_name: redis-dev
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    command: redis-server --appendonly yes
+    restart: unless-stopped
+
+  api:
+    build: .
+    container_name: fastapi_api
+    ports:
+      - "8000:8000"
+    depends_on:
+      - db
+      - redis
+    env_file:
+      - app/.env
+    environment:
+      - DATABASE_URL=postgresql://usuario:senha123@db:5432/meubanco
+      - REDIS_HOST=redis
+      - PYTHONPATH=/app
+    restart: always
+
+  worker:
+    build: .
+    container_name: fastapi_worker
+    command: python worker/worker.py
+    depends_on:
+      - redis
+    env_file:
+      - app/.env
+    environment:
+      - REDIS_HOST=redis
+      - PYTHONPATH=/app
+    restart: always
+
+volumes:
+  pgdata:
+  redis-data:
